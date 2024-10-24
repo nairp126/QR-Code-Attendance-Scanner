@@ -14,7 +14,7 @@ from email.mime.text import MIMEText
 scanning = False
 
 # Function to send confirmation email in a separate thread
-def send_confirmation_email(name, email):
+def send_confirmation_email(name, email, send_email):
     from_email = os.getenv("EMAIL_USER")
     from_password = os.getenv("EMAIL_PASS")
 
@@ -28,23 +28,39 @@ def send_confirmation_email(name, email):
     # Replace {Name} placeholder with the participant's name
     body = body.replace("{Name}", name)
     
-    msg = MIMEMultipart()
-    msg['From'] = from_email
-    msg['To'] = email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+    if send_email:
+        msg = MIMEMultipart()
+        msg['From'] = from_email
+        msg['To'] = email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
 
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(from_email, from_password)
-        server.sendmail(from_email, email, msg.as_string())
-        server.quit()
-        print(f"Email sent to {name} at {email}.")
-    except Exception as e:
-        print(f"Failed to send email to {name}: {e}")
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()
+            server.login(from_email, from_password)
+            server.sendmail(from_email, email, msg.as_string())
+            server.quit()
+            log_email(name, email, 'Sent')  # Log the email as sent
+            print(f"Email sent to {name} at {email}.")
+        except Exception as e:
+            log_email(name, email, f"Failed: {e}")  # Log the failure
+            print(f"Failed to send email to {name}: {e}")
+    else:
+        log_email(name, email, 'Skipped')  # Log the email as skipped
+        print(f"Email to {name} was skipped.")
 
-# Function to scan QR codes and store unique IDs along with names
+# Function to log email status
+def log_email(name, email, status):
+    log_data = {'Name': name, 'Email': email, 'Status': status, 'Timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    log_df = pd.DataFrame([log_data])
+    
+    if not os.path.isfile('email_logscan.csv'):
+        log_df.to_csv('email_logscan.csv', index=False)
+    else:
+        log_df.to_csv('email_logscan.csv', mode='a', header=False, index=False)
+
+# Function to scan QR codes and store UniqueIDs along with names
 def scan_qr_code(main_sheet):
     global scanning
     cap = cv2.VideoCapture(0)
@@ -70,23 +86,26 @@ def scan_qr_code(main_sheet):
             if unique_id not in last_scanned:  # Process only if not already scanned
                 last_scanned.add(unique_id)  # Mark as scanned
 
-                # Check if the Unique ID is in the main sheet
-                participant_data = main_sheet.loc[main_sheet['Unique ID'] == unique_id]
+                # Check if the UniqueID is in the main sheet
+                participant_data = main_sheet.loc[main_sheet['UniqueID'] == unique_id]
                 if not participant_data.empty:
                     name = participant_data['Name'].values[0]
                     email = participant_data['Email'].values[0]
 
-                    print(f"Scanned Unique ID: {unique_id}, Name: {name}")
+                    print(f"Scanned UniqueID: {unique_id}, Name: {name}")
 
                     scanned_data.append({
-                        'Unique ID': unique_id,
+                        'UniqueID': unique_id,
                         'Name': name,
                         'Email': email,
                         'Timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     })
 
+                    # Check if the user wants to send the email
+                    send_email = email_checkbox_var.get()
+                    
                     # Send confirmation email in a separate thread
-                    threading.Thread(target=send_confirmation_email, args=(name, email)).start()
+                    threading.Thread(target=send_confirmation_email, args=(name, email, send_email)).start()
 
                     # Update the table with the scanned data
                     update_table(scanned_data)
@@ -112,7 +131,7 @@ def update_table(scanned_data):
         tree.delete(i)  # Clear previous entries
 
     for data in scanned_data:
-        tree.insert("", tk.END, values=(data['Unique ID'], data['Name'], data['Timestamp']))
+        tree.insert("", tk.END, values=(data['UniqueID'], data['Name'], data['Timestamp']))
 
 def save_to_csv(scanned_data):
     df = pd.DataFrame(scanned_data)
@@ -123,10 +142,10 @@ def update_attendance(main_sheet, scanned_data):
     # Convert scanned data to DataFrame
     scanned_df = pd.DataFrame(scanned_data)
 
-    # Merge both dataframes on the 'Unique ID' column
-    merged_df = pd.merge(main_sheet, scanned_df[['Unique ID', 'Name', 'Email', 'Timestamp']], on='Unique ID', how='left')
+    # Merge both dataframes on the 'UniqueID' column
+    merged_df = pd.merge(main_sheet, scanned_df[['UniqueID', 'Name', 'Email', 'Timestamp']], on='UniqueID', how='left')
 
-    # Mark attendance based on whether a unique ID has been scanned
+    # Mark attendance based on whether a UniqueID has been scanned
     merged_df['Attendance'] = merged_df['Timestamp'].notna().replace({True: 'Present', False: 'Absent'})
 
     # Save the updated attendance sheet
@@ -148,7 +167,7 @@ def stop_scanning():
 
 def load_main_sheet():
     try:
-        return pd.read_excel(r"C:\Users\nairp\Downloads\IBM Organising Committee List Hypervision.xlsx")
+        return pd.read_excel(r"C:\Users\nairp\Downloads\posterpaper2.xlsx")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to load the main attendance sheet: {e}")
         return None
@@ -181,9 +200,9 @@ stop_button = tk.Button(root, text="Stop Scanning", command=stop_scanning)
 stop_button.pack(pady=5)
 
 # Create a table for displaying scanned data
-columns = ('Unique ID', 'Name', 'Timestamp')
+columns = ('UniqueID', 'Name', 'Timestamp')
 tree = ttk.Treeview(root, columns=columns, show='headings')
-tree.heading('Unique ID', text='Unique ID')
+tree.heading('UniqueID', text='UniqueID')
 tree.heading('Name', text='Name')
 tree.heading('Timestamp', text='Timestamp')
 tree.pack(pady=20)
@@ -192,15 +211,19 @@ tree.pack(pady=20)
 tk.Label(root, text="Email Subject:").pack(pady=5)
 email_subject_var = tk.StringVar()
 email_subject_entry = tk.Entry(root, textvariable=email_subject_var, width=50)
-email_subject_entry.pack(pady=5)
+email_subject_entry.pack()
 
 tk.Label(root, text="Email Body:").pack(pady=5)
-email_body_var = tk.Text(root, height=10, width=60)
-email_body_var.pack(pady=5)
+email_body_var = tk.Text(root, height=10, width=50)
+email_body_var.pack()
 
-# Load Template Button
+# Email sending checkbox
+email_checkbox_var = tk.BooleanVar(value=True)
+email_checkbox = tk.Checkbutton(root, text="Send Email after Scanning", variable=email_checkbox_var)
+email_checkbox.pack(pady=5)
+
+# Button to load email template
 load_template_button = tk.Button(root, text="Load Email Template", command=load_email_template)
 load_template_button.pack(pady=5)
 
-# Start the GUI loop
 root.mainloop()
