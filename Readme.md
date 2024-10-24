@@ -1,6 +1,6 @@
 # QR Code Attendance Scanner
 
-A Python-based QR code attendance tracking system with email confirmations. Built with Tkinter for GUI, OpenCV for QR code scanning, and Google Apps Script for generating personalized event tickets.
+A Python-based QR code attendance tracking system with email confirmations. Built with Tkinter for GUI, OpenCV for QR code scanning for generating personalized event tickets.
 
 ## Features
 - Scans QR codes and records attendance.
