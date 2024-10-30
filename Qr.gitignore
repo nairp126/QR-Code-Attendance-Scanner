@@ -10,4 +10,5 @@ env/
 *.csv
 *.xlsx
 
-# Ignore environment variables files
+# Ignore environment variables file
+
