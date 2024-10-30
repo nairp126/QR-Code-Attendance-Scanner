@@ -15,6 +15,10 @@ import threading
 import time
 from datetime import datetime
 import tkinter.ttk as ttk
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Function to generate the PDF ticket
 def generate_ticket_pdf(name, unique_id):
