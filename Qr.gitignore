@@ -11,4 +11,4 @@ env/
 *.xlsx
 
 # Ignore environment variables file
-.env
+
