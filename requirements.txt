@@ -1,7 +1,25 @@
-opencv-python==4.5.3.56
-pandas==1.3.3
-pyzbar==0.1.8
-tk==0.1.0
-threading==1.0.0
-openpyxl==3.0.7
-smtplib==0.3.3
+# QR code and Barcode decoding
+opencv-python-headless==4.8.0.76     # Required for cv2 (headless version if GUI is not needed for OpenCV)
+pyzbar==0.1.9                        # For barcode and QR code decoding
+
+# Data management and handling
+pandas==1.5.3                        # For data manipulation and CSV handling
+datetime                             # Standard library, no installation required
+time                                 # Standard library, no installation required
+
+# GUI for Python
+tkinter                              # GUI toolkit (installed with Python, no pip install needed)
+
+# PDF and QR Code generation
+qrcode==7.3.1                        # For QR code generation
+pyzbar
+Pillow==9.4.0                        # Image support for QR code generation (dependency of qrcode)
+reportlab==3.6.12                    # For generating PDF tickets
+
+# Email functionality and environment variable management
+smtplib                              # Standard library, no installation required
+email                                # Standard library, no installation required
+python-dotenv==1.0.0                 # For managing environment variables
+
+# Logging
+logging                              # Standard library, no installation required
