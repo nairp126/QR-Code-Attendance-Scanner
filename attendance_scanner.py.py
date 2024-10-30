@@ -9,9 +9,18 @@ import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from dotenv import load_dotenv  # Import dotenv to load .env file
+import logging
+
+# Set up logging
+logging.basicConfig(filename='app.log', level=logging.DEBUG)
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize scanning flag
 scanning = False
+main_sheet_path = None  # Variable to store selected Excel file path
 
 # Function to send confirmation email in a separate thread
 def send_confirmation_email(name, email, send_email):
@@ -120,11 +129,12 @@ def scan_qr_code(main_sheet):
     cap.release()
     cv2.destroyAllWindows()
 
-    # Save the scanned data to CSV
-    save_to_csv(scanned_data)
+    if scanned_data:  # Ensure there is data to save and update
+        # Save the scanned data to CSV
+        save_to_csv(scanned_data)
 
-    # Update attendance in the main sheet
-    update_attendance(main_sheet, scanned_data)
+        # Update attendance in the main sheet
+        update_attendance(main_sheet, scanned_data)
 
 def update_table(scanned_data):
     for i in tree.get_children():
@@ -141,9 +151,12 @@ def save_to_csv(scanned_data):
 def update_attendance(main_sheet, scanned_data):
     # Convert scanned data to DataFrame
     scanned_df = pd.DataFrame(scanned_data)
+    
+    # Debug: Print scanned_df to check its structure
+    print(scanned_df.head())
 
     # Merge both dataframes on the 'UniqueID' column
-    merged_df = pd.merge(main_sheet, scanned_df[['UniqueID', 'Name', 'Email', 'Timestamp']], on='UniqueID', how='left')
+    merged_df = pd.merge(main_sheet, scanned_df, on='UniqueID', how='left')
 
     # Mark attendance based on whether a UniqueID has been scanned
     merged_df['Attendance'] = merged_df['Timestamp'].notna().replace({True: 'Present', False: 'Absent'})
@@ -155,22 +168,38 @@ def update_attendance(main_sheet, scanned_data):
 def start_scanning():
     global scanning
     scanning = True
-    main_sheet = load_main_sheet()
+    main_sheet = load_main_sheet()  # Load main sheet after selecting it
     if main_sheet is not None:
         scan_thread = threading.Thread(target=scan_qr_code, args=(main_sheet,))
         scan_thread.start()
 
 def stop_scanning():
     global scanning
-    scanning = False
-    messagebox.showinfo("Info", "Scanning has been stopped.")
+    if scanning:  # Check if scanning is currently active
+        scanning = False
+        messagebox.showinfo("Info", "Scanning has been stopped.")
+    else:
+        messagebox.showinfo("Info", "Scanning is not currently active.")
 
 def load_main_sheet():
-    try:
-        return pd.read_excel(r"C:\Users\nairp\Downloads\posterpaper2.xlsx")
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to load the main attendance sheet: {e}")
+    global main_sheet_path
+    if main_sheet_path:
+        try:
+            return pd.read_excel(main_sheet_path)  # Load the selected Excel file
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load the main attendance sheet: {e}")
+            return None
+    else:
+        messagebox.showerror("Error", "Please select an Excel file first.")
         return None
+
+def select_excel_file():
+    global main_sheet_path
+    main_sheet_path = filedialog.askopenfilename(title="Select Excel File", filetypes=[("Excel files", "*.xlsx")])
+    if main_sheet_path:
+        messagebox.showinfo("Info", f"Excel file selected: {main_sheet_path}")
+    else:
+        messagebox.showwarning("Warning", "No file selected.")
 
 def load_email_template():
     # Open file dialog to select template file
@@ -188,42 +217,50 @@ def load_email_template():
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load the email template: {e}")
 
+
 # Create the main window
 root = tk.Tk()
 root.title("QR Code Attendance Scanner")
 
 # Create and place widgets
 scan_button = tk.Button(root, text="Start Scanning", command=start_scanning)
-scan_button.pack(pady=20)
+scan_button.pack(pady=10)
 
 stop_button = tk.Button(root, text="Stop Scanning", command=stop_scanning)
-stop_button.pack(pady=5)
+stop_button.pack(pady=10)
 
-# Create a table for displaying scanned data
-columns = ('UniqueID', 'Name', 'Timestamp')
-tree = ttk.Treeview(root, columns=columns, show='headings')
-tree.heading('UniqueID', text='UniqueID')
-tree.heading('Name', text='Name')
-tree.heading('Timestamp', text='Timestamp')
-tree.pack(pady=20)
-
-# Email subject and body
-tk.Label(root, text="Email Subject:").pack(pady=5)
-email_subject_var = tk.StringVar()
-email_subject_entry = tk.Entry(root, textvariable=email_subject_var, width=50)
-email_subject_entry.pack()
-
-tk.Label(root, text="Email Body:").pack(pady=5)
-email_body_var = tk.Text(root, height=10, width=50)
-email_body_var.pack()
-
-# Email sending checkbox
+# Email checkbox to ask if emails should be sent
 email_checkbox_var = tk.BooleanVar(value=True)
-email_checkbox = tk.Checkbutton(root, text="Send Email after Scanning", variable=email_checkbox_var)
-email_checkbox.pack(pady=5)
+email_checkbox = tk.Checkbutton(root, text="Send Confirmation Emails", variable=email_checkbox_var)
+email_checkbox.pack()
+
+# Button to select Excel file
+select_file_button = tk.Button(root, text="Select Excel File", command=select_excel_file)
+select_file_button.pack(pady=10)
+
+# Email subject and body template
+email_subject_label = tk.Label(root, text="Email Subject:")
+email_subject_label.pack()
+
+email_subject_var = tk.StringVar()
+email_subject_entry = tk.Entry(root, textvariable=email_subject_var)
+email_subject_entry.pack(pady=5)
+
+email_body_label = tk.Label(root, text="Email Body:")
+email_body_label.pack()
+
+email_body_var = tk.Text(root, height=5, width=50)
+email_body_var.pack(pady=5)
 
 # Button to load email template
 load_template_button = tk.Button(root, text="Load Email Template", command=load_email_template)
-load_template_button.pack(pady=5)
+load_template_button.pack(pady=10)
+
+# Create treeview to display scanned data
+tree = ttk.Treeview(root, columns=("UniqueID", "Name", "Timestamp"), show="headings")
+tree.heading("UniqueID", text="UniqueID")
+tree.heading("Name", text="Name")
+tree.heading("Timestamp", text="Timestamp")
+tree.pack(pady=20)
 
 root.mainloop()
