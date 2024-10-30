@@ -1,5 +1,5 @@
 
-### Features and Functionality Text Document
+### Features and Functionality
 
 ```plaintext
 # Features and Functionality
