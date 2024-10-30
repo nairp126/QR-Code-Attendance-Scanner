@@ -1,6 +1,10 @@
 # Event Management System
 
+<<<<<<< HEAD
 This repository contains a Python-based event management system that facilitates the generation of personalized event tickets in PDF format, sends them via email, and tracks attendance using QR codes.
+=======
+A Python-based QR code attendance tracking system with email confirmations. Built with Tkinter for GUI, OpenCV for QR code scanning for generating personalized event tickets.
+>>>>>>> 5b705d3283c70b245948ce889a5ab7c0e12cc2a0
 
 ## Features
 
